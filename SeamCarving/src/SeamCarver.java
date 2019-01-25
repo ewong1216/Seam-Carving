@@ -2,12 +2,26 @@ import java.awt.Color;
 
 public class SeamCarver{
 	private SmC_Picture p;
+	private double[][] energy;
 	
 	public SeamCarver(SmC_Picture pictureP){
 		if(pictureP == null){
 			throw new NullPointerException();
 		}
 		p = new SmC_Picture(pictureP);
+		energy = new double[width()][height()];
+		for(int col = 0; col < width(); col++){
+			energy[col][0] = 1000.0;
+			for(int row = 1; (col == 0 || col == width()-1) && row < height()-1; row++){
+				energy[col][row] = 1000.0;
+			}
+			energy[col][height()-1] = 1000.0;
+		}
+		for(int col = 1; col < height()-1; col++){
+			for(int row = 1; row < width()-1; row++){
+				energy[col][row] = Math.sqrt(gradientSq(col,row,1,0) + gradientSq(col,row,0,1));
+			}
+		}
 	}
 
 	public SmC_Picture picture(){
@@ -21,15 +35,9 @@ public class SeamCarver{
 	public int height(){
 		return p.height();
 	}
-
+	
 	public double energy(int x, int y){
-		if(x < 0 || y < 0 || x >= width() || y >= height()){
-			throw new IndexOutOfBoundsException();
-		}
-		if(x == 0 || y == 0 || x == width() - 1 || y == height() - 1){
-			return 1000.0;
-		}
-		return Math.sqrt(gradientSq(x,y,1,0) + gradientSq(x,y,0,1));
+		return energy[x][y]; //Will throw indexoutofbounds if needed
 	}
 	private double gradientSq(int x, int y, int xChange, int yChange){
 		Color left = p.get(x - xChange, y - yChange);
