@@ -59,7 +59,7 @@ public class SmC_Test_PrintSeams {
     }
 
     public static void main(String[] args) {
-    	String filename = "testInput/6x5.png";
+    	String filename = "testInput/12x10.png";
         SmC_Picture picture = new SmC_Picture(filename);
         StdOut.printf("%s (%d-by-%d image)\n", filename, picture.width(), picture.height());
         StdOut.println();
