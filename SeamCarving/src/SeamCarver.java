@@ -12,16 +12,18 @@ public class SeamCarver{
 		energy = new double[width()][height()];
 		for(int col = 0; col < width(); col++){
 			energy[col][0] = 1000.0;
-			for(int row = 1; (col == 0 || col == width()-1) && row < height()-1; row++){
-				energy[col][row] = 1000.0;
-			}
 			energy[col][height()-1] = 1000.0;
 		}
-		for(int col = 1; col < height()-1; col++){
-			for(int row = 1; row < width()-1; row++){
+		for(int row = 1; row < height()-1; row++){
+			energy[0][row] = 1000.0;
+			energy[width()-1][row] = 1000.0;
+		}
+		for(int col = 1; col < width()-1; col++){
+			for(int row = 1; row < height()-1; row++){
 				energy[col][row] = Math.sqrt(gradientSq(col,row,1,0) + gradientSq(col,row,0,1));
 			}
 		}
+		
 	}
 
 	public SmC_Picture picture(){
@@ -63,5 +65,4 @@ public class SeamCarver{
 	public void removeVerticalSeam(int[] a){
 		throw new UnsupportedOperationException();
 	}
-	
 }
