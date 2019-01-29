@@ -112,10 +112,31 @@ public class SeamCarver{
 	}
 
 	public void removeHorizontalSeam(int[] a){
-		throw new UnsupportedOperationException();
+		if(a == null){
+			throw new NullPointerException();
+		}
+		if(height() <= 1 || isInvalidSeam(a) || a.length != width()){
+			throw new IllegalArgumentException();
+		}
+		
 	}
 
 	public void removeVerticalSeam(int[] a){
-		throw new UnsupportedOperationException();
+		if(a == null){
+			throw new NullPointerException();
+		}
+		if(width() <= 1 || isInvalidSeam(a) || a.length != height()){
+			throw new IllegalArgumentException();
+		}
+		
+	}
+	
+	private boolean isInvalidSeam(int[] a){
+		for(int i = 0; i < a.length - 1; i++){
+			if(Math.abs(a[i] - a[i+1]) > 1){
+				return true;
+			}
+		}
+		return false;
 	}
 }
