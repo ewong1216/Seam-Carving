@@ -2,7 +2,7 @@ import java.awt.Color;
 
 public class SeamCarver{
 	private SmC_Picture p;
-	private double[][] energy;
+	private double[][] energy; //Is actually column major order, this way energy[x][y] works correctly. If the array was row major, eg. energy[row] gives the array of that row, then the energy would have to be energy[y][x] which I didn't want
 	
 	public SeamCarver(SmC_Picture pictureP){
 		if(pictureP == null){
@@ -20,7 +20,7 @@ public class SeamCarver{
 		}
 		for(int col = 1; col < width()-1; col++){
 			for(int row = 1; row < height()-1; row++){
-				energy[col][row] = Math.sqrt(gradientSq(col,row,1,0) + gradientSq(col,row,0,1));
+				energy[col][row] = calcEnergy(col, row);
 			}
 		}
 		
@@ -40,6 +40,9 @@ public class SeamCarver{
 	
 	public double energy(int x, int y){
 		return energy[x][y]; //Will throw indexoutofbounds if needed
+	}
+	private double calcEnergy(int x, int y){
+		return Math.sqrt(gradientSq(x,y,1,0) + gradientSq(x,y,0,1));
 	}
 	private double gradientSq(int x, int y, int xChange, int yChange){
 		Color left = p.get(x - xChange, y - yChange);
@@ -111,22 +114,46 @@ public class SeamCarver{
 		return findVerticalSeam(energy);
 	}
 
-	public void removeHorizontalSeam(int[] a){
-		if(a == null){
+	public void removeHorizontalSeam(int[] seam){ //Have to do this one first because energy array is col major
+		if(seam == null){
 			throw new NullPointerException();
 		}
-		if(height() <= 1 || isInvalidSeam(a) || a.length != width()){
-			throw new IllegalArgumentException();
+		if(height() <= 1){
+			throw new IllegalArgumentException("Picture height is <= 1");
+		}
+		if(isInvalidSeam(seam) || seam.length != width()){
+			throw new IllegalArgumentException("Invalid seam");
 		}
 		
+		for(int col = 1; col < width()-1; col++){ //For every col, remove the index at the row of the seam, then shift everything below up. Recalc energies. First and last col always 1000.0
+			int row = seam[col];
+			System.arraycopy(energy[col], row+1, energy[col], row, height() - row); //TODO: Might be index problems here
+			energy[col][row] = calcEnergy(col, row);
+			energy[col][row+1] = calcEnergy(col, row);
+		}
+		SmC_Picture newPic = new SmC_Picture(p.width(), p.height() - 1); //Height is 1 less because one row removed
+		for(int col = 0; col < newPic.width(); col++){
+			for(int row = 0; row < newPic.height(); row++){
+				int origRow = row;
+				if(row == seam[col]){ //If we are at the row that is removed, pass over it
+					origRow++;
+				}
+				newPic.set(col, row, p.get(col, origRow));
+			}
+		}
+		
+		p = newPic;
 	}
 
 	public void removeVerticalSeam(int[] a){
 		if(a == null){
 			throw new NullPointerException();
 		}
-		if(width() <= 1 || isInvalidSeam(a) || a.length != height()){
-			throw new IllegalArgumentException();
+		if(width() <= 1){
+			throw new IllegalArgumentException("Picture width is <= 1");
+		}
+		if(isInvalidSeam(a) || a.length != height()){
+			throw new IllegalArgumentException("Invalid seam");
 		}
 		
 	}
@@ -139,4 +166,5 @@ public class SeamCarver{
 		}
 		return false;
 	}
+	
 }
