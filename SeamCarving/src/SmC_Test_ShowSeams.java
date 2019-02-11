@@ -27,7 +27,7 @@ public class SmC_Test_ShowSeams {
     }
 
     public static void main(String[] args) {
-        SmC_Picture picture = new SmC_Picture("testInput/6x5.png");
+        SmC_Picture picture = new SmC_Picture("testInput/HJocean.png");
         StdOut.printf("image is %d columns by %d rows\n", picture.width(), picture.height());
         picture.show();        
         SeamCarver sc = new SeamCarver(picture);

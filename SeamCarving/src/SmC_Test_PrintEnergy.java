@@ -13,7 +13,7 @@
 public class SmC_Test_PrintEnergy {
 
     public static void main(String[] args) {
-        SmC_Picture picture = new SmC_Picture("testInput/3x4.png");
+        SmC_Picture picture = new SmC_Picture("testInput/10x12.png");
         StdOut.printf("image is %d pixels wide by %d pixels high.\n", picture.width(), picture.height());
         
         SeamCarver sc = new SeamCarver(picture);
