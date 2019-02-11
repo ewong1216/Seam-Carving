@@ -3,7 +3,8 @@ import java.awt.Color;
 public class SeamCarver{
 	private SmC_Picture p;
 	private double[][] energy; //Is actually column major order, this way energy[x][y] works correctly. If the array was row major, eg. energy[row] gives the array of that row, then the energy would have to be energy[y][x] which I didn't want
-	private boolean isTransposed;
+	private boolean isEnergyTransposed;
+	private boolean isPicTransposed;
 	
 	public SeamCarver(SmC_Picture pictureP){
 		if(pictureP == null){
@@ -24,61 +25,77 @@ public class SeamCarver{
 				energy[col][row] = calcEnergy(col, row);
 			}
 		}
-		
+
 	}
 
 	public SmC_Picture picture(){
+		if(isPicTransposed){
+			transposePic();
+		}
 		return p;
 	}
 
 	public int width(){
+		if(isPicTransposed){
+			return p.height();
+		}
 		return p.width();
 	}
 
 	public int height(){
+		if(isPicTransposed){
+			return p.width();
+		}
 		return p.height();
 	}
 	
 	public double energy(int x, int y){
-		if(isTransposed){
+		if(isEnergyTransposed){
 			return energy[y][x];
 		}
 		return energy[x][y]; //Will throw indexoutofbounds if needed
 	}
 	private double calcEnergy(int x, int y){
-		if(x == 0 || x == width() - 1 || y == 0 || y == height() - 1){
+		if(x == 0 || x == p.width() - 1 || y == 0 || y == p.height() - 1){
 			return 1000.0;
 		}
 		return Math.sqrt(gradientSq(x,y,1,0) + gradientSq(x,y,0,1));
 	}
 	private double gradientSq(int x, int y, int xChange, int yChange){
-		Color left = p.get(x - xChange, y - yChange);
-		Color right = p.get(x + xChange, y + yChange);
-		int r = right.getRed() - left.getRed();
-		int g = right.getGreen() - left.getGreen();
-		int b = right.getBlue() - left.getBlue();
+		Color leftOrBelow = p.get(x - xChange, y - yChange);
+		if(x < 0 || x > p.width() - 1 || y < 0 || y > p.height() - 1){
+			System.out.print("prob");
+		}
+		Color rightOrTop = p.get(x + xChange, y + yChange);
+		int r = rightOrTop.getRed() - leftOrBelow.getRed();
+		int g = rightOrTop.getGreen() - leftOrBelow.getGreen();
+		int b = rightOrTop.getBlue() - leftOrBelow.getBlue();
 		return r*r + g*g + b*b;
 	}
 
 	public int[] findHorizontalSeam(){
-		if(!isTransposed){
+		if(!isEnergyTransposed){
 			transposeEnergy();
 		}
-		return findVerticalSeam(energy);
+		return returnVerticalSeam();
 	}
-	private int[] findVerticalSeam(double[][] energy){
-		int width = energy.length;
-		int height = energy[0].length;
+	private int[] returnVerticalSeam(){
+		int width = width();
+		int height = height();
+		if(isEnergyTransposed){
+			width = height();
+			height = width();
+		}
 		double[][] distTo = new double[width][height];
 		int[][] edgeTo = new int[width][height]; //Each pixel has 3 possible previous pixels: -1 is from top left, 0 from above, 1 from top right
-		for(int row = 1; row < height; row++){
-			for(int col = 0; col < width; col++){
+		for(int col = 0; col < width; col++){
+			for(int row = 1; row < height; row++){
 				distTo[col][row] = 999999; //Set all distances except the first row to "infinity"
 			}
 		}
 		
-		for(int row = 0; row < height-1; row++){ //Last row no edges
-			for(int col = 0; col < width; col++){ //Will go through in a top order
+		for(int row = 0; row < height - 1; row++){ //Last row no edges
+			for(int col = 0; col < width; col++){
 				double dist = distTo[col][row] + energy[col][row+1];
 				if(distTo[col][row+1] > dist){ //All vertices (except last row) have edge pointing down
 					distTo[col][row+1] = dist;
@@ -105,38 +122,50 @@ public class SeamCarver{
 		}
 		
 		int[] vertSeam = new int[height];
-		vertSeam[vertSeam.length-1] = shortest;
+		vertSeam[height-1] = shortest;
 		int col = shortest + edgeTo[shortest][height-1];
 		for(int row = height-2; row > -1; row--){ //bottom to top
 			vertSeam[row] = col;
+			if(col < 0){
+				System.out.print("prob");
+			}
 			col = col + edgeTo[col][row];
 		}
 		
 		return vertSeam;
 	}
 	public int[] findVerticalSeam(){
-		if(isTransposed){
+		if(isEnergyTransposed){
 			transposeEnergy();
 		}
-		return findVerticalSeam(energy);
+		return returnVerticalSeam();
 	}
 
 	public void removeHorizontalSeam(int[] seam){ //Have to do this one first because energy array is col major
 		if(seam == null){
 			throw new NullPointerException();
 		}
+		if(isEnergyTransposed){  
+			transposeEnergy();
+		}
+		if(isPicTransposed){
+			transposePic();
+		}
 		if(height() <= 1){
 			throw new IllegalArgumentException("Picture height is <= 1");
 		}
-		if(isInvalidSeam(seam) || seam.length != width()){
+		if(isInvalidSeam(seam,false) || seam.length != width()){
 			throw new IllegalArgumentException("Invalid seam");
 		}
 		
-		for(int col = 1; col < width()-1; col++){ //For every col, remove the index at the row of the seam, then shift everything below up. Recalc energies. First and last col always 1000.0
+		removeHorizontalSeamShared(seam);
+	}
+	private void removeHorizontalSeamShared(int[] seam){
+		for(int col = 1; col < p.width()-1; col++){ //For every col, remove the index at the row of the seam, then shift everything below up. Recalc energies. First and last col always 1000.0
 			int row = seam[col];
-			System.arraycopy(energy[col], row+1, energy[col], row, height() - row - 1); 
+			System.arraycopy(energy[col], row+1, energy[col], row, p.height() - row - 1); 
+			energy[col][row-1] = calcEnergy(col, row-1);
 			energy[col][row] = calcEnergy(col, row);
-			energy[col][row+1] = calcEnergy(col, row);
 		}
 		SmC_Picture newPic = new SmC_Picture(p.width(), p.height() - 1); //Height is 1 less because one row removed
 		for(int col = 0; col < newPic.width(); col++){
@@ -151,7 +180,6 @@ public class SeamCarver{
 		
 		p = newPic;
 	}
-
 	public void removeVerticalSeam(int[] seam){
 		if(seam == null){
 			throw new NullPointerException();
@@ -159,35 +187,58 @@ public class SeamCarver{
 		if(width() <= 1){
 			throw new IllegalArgumentException("Picture width is <= 1");
 		}
-		if(isInvalidSeam(seam) || seam.length != height()){
+		if(isInvalidSeam(seam, true) || seam.length != height()){
 			throw new IllegalArgumentException("Invalid seam");
 		}
+		if(!isEnergyTransposed){
+			transposeEnergy();
+		}
+		if(!isPicTransposed){
+			transposePic();
+		}
 		
+		removeHorizontalSeamShared(seam);
 	}
 	
-	private boolean isInvalidSeam(int[] a){
+	private boolean isInvalidSeam(int[] a, boolean isVertical){
 		for(int i = 0; i < a.length - 1; i++){
-			if(Math.abs(a[i] - a[i+1]) > 1){
+			if(Math.abs(a[i] - a[i+1]) > 1 || a[i] < 0){
 				return true;
+			}
+			if(isVertical){
+				if(a[i] > width() - 1){
+					return true;
+				}
+			}
+			else{
+				if(a[i] > height() - 1){
+					return true;
+				}
 			}
 		}
 		return false;
 	}
 	
 	private void transposeEnergy(){
-		double[][] transposedEnergy = null;
-		if(!isTransposed){
-			transposedEnergy = new double[height()][width()];
-		}
-		else{
-			transposedEnergy = new double[width()][height()];
-		}
-		for(int row = 0; row < height(); row++){
-			for(int col = 0; col < width(); col++){
+		double[][] transposedEnergy = new double[energy[0].length][energy.length];
+		for(int row = 0; row < energy[0].length; row++){
+			for(int col = 0; col < energy.length; col++){
 				transposedEnergy[row][col] = energy[col][row];
 			}
 		}
 		energy = transposedEnergy;
-		isTransposed = !isTransposed;
+		isEnergyTransposed = !isEnergyTransposed;
 	}
+	
+	private void transposePic(){
+		SmC_Picture transposed = new SmC_Picture(p.height(), p.width());
+		for(int col = 0; col < p.width(); col++){
+			for(int row = 0; row < p.height(); row++){
+				transposed.set(row, col, p.get(col, row));
+			}
+		}
+		p = transposed;
+		isPicTransposed = !isPicTransposed;
+	}
+
 }
